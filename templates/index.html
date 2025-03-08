@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Oakland 311 Complaints</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f9f9f9;
+        }
+        h2 {
+            text-align: center;
+        }
+        .container {
+            width: 90%;
+            margin: auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+        }
+        .map-container {
+            width: 100%;
+            height: 500px;
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+        .table-container {
+            width: 100%;
+            overflow-x: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 10px;
+            border: 1px solid #ddd;
+            text-align: left;
+        }
+        th {
+            background-color: #007BFF;
+            color: white;
+        }
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        img {
+            width: 50px;
+            height: auto;
+        }
+        td.summary, td.description, td.closed_at, td.category, td.address, td.department {
+            white-space: normal !important;
+            word-wrap: break-word;
+            max-width: 300px;
+        }
+        td:not(.summary):not(.description):not(.closed_at):not(.category):not(.address):not(.department) {
+            white-space: nowrap;
+        }
+        form {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        /* Chart container */
+        .chart-container {
+            width: 100%;
+            max-width: 600px;
+            height: 300px;
+            margin: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Oakland 311 Complaints</h2>
+
+        <form method="POST">
+            <input type="text" name="address" placeholder="Enter an address..." required value="{{ search_address or '' }}">
+            <input type="number" name="radius" placeholder="Radius (miles)" step="0.1" value="{{ search_radius or 0.5 }}">
+            <input type="date" name="start_date" value="{{ search_start_date }}">
+            <input type="date" name="end_date" value="{{ search_end_date }}">
+
+            <!-- Multi-Select Category Dropdown -->
+            <select name="categories" multiple>
+                {% for category in categories %}
+                    <option value="{{ category }}" {% if category in selected_categories %}selected{% endif %}>{{ category }}</option>
+                {% endfor %}
+            </select>
+            <p style="text-align: center; font-size: 12px;">(Hold Ctrl/Cmd to select multiple categories)</p>
+
+            <button type="submit">Search</button>
+        </form>
+
+        {% if error %}
+            <p style="color:red; text-align:center;">{{ error }}</p>
+        {% endif %}
+
+        {% if map_html %}
+            <div class="map-container">{{ map_html|safe }}</div>
+        {% endif %}
+
+        {% if complaints %}
+            <h3>Filtered Complaints</h3>
+            <p><strong>Search Criteria:</strong> 
+                Address: {{ search_address }}, 
+                Radius: {{ search_radius }} miles, 
+                Start Date: {{ search_start_date or "None" }}, 
+                End Date: {{ search_end_date or "None" }},
+                Categories: 
+                {% if selected_categories %}
+                    {{ selected_categories | join(', ') }}
+                {% else %}
+                    All
+                {% endif %}
+            </p>
+
+            <h4>Search Summary</h4>
+            <p><strong>Total Issues Found:</strong> {{ total_issues }}</p>
+
+            <h4>Issues by Category:</h4>
+            <ul>
+                {% for category, count in issues_by_category.items() %}
+                    <li>{{ category }}: {{ count }}</li>
+                {% endfor %}
+            </ul>
+
+            <h4>Issues Over Time:</h4>
+            <div class="chart-container">
+                <canvas id="issuesChart"></canvas>
+            </div>
+
+            <script>
+                window.onload = function() {
+                    var ctx = document.getElementById("issuesChart").getContext("2d");
+
+                    var issuesByTime = {{ issues_by_time | tojson | safe }};
+                    console.log("Issues by Time Data:", issuesByTime);  // Debugging - Check data in console
+
+                    if (issuesByTime.length === 0) {
+                        console.log("No issue data available.");
+                        return;
+                    }
+
+                    var issueDates = issuesByTime.map(item => item.date);
+                    var issueCounts = issuesByTime.map(item => item.count);
+
+                    var chartType = issueDates.length > 20 ? "line" : "bar"; // Line for larger datasets
+
+                    var issuesData = {
+                        labels: issueDates,
+                        datasets: [{
+                            label: "Issues Over Time",
+                            data: issueCounts,
+                            borderColor: "rgba(54, 162, 235, 1)",
+                            backgroundColor: "rgba(54, 162, 235, 0.3)",
+                            borderWidth: 2,
+                            fill: true
+                        }]
+                    };
+
+                    new Chart(ctx, {
+                        type: chartType,
+                        data: issuesData,
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            scales: {
+                                x: { title: { display: true, text: "Time Period" } },
+                                y: { beginAtZero: true, title: { display: true, text: "Number of Issues" } }
+                            }
+                        }
+                    });
+                };
+            </script>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>ID</th>
+                            <th>Summary</th>
+                            <th>Description</th>
+                            <th>Status</th>
+                            <th>Created At</th>
+                            <th>Updated At</th>
+                            <th>Acknowledged At</th>
+                            <th class="closed_at">Closed At</th>
+                            <th>Reopened At</th>
+                            <th>Reporter</th>
+                            <th class="address">Address</th>
+                            <th class="category">Category</th>
+                            <th class="department">Department</th>
+                            <th>Photo</th>
+                            <th>Complaint Link</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for complaint in complaints %}
+                            <tr>
+                                <td><strong>#{{ complaint.index }}</strong></td>
+                                <td>{{ complaint.id }}</td>
+                                <td class="summary">{{ complaint.summary }}</td>
+                                <td class="description">{{ complaint.description }}</td>
+                                <td>{{ complaint.status }}</td>
+                                <td>{{ complaint.created_at }}</td>
+                                <td>{{ complaint.updated_at }}</td>
+                                <td>{{ complaint.acknowledged_at or "N/A" }}</td>
+                                <td class="closed_at">{{ complaint.closed_at or "N/A" }}</td>
+                                <td>{{ complaint.reopened_at or "N/A" }}</td>
+                                <td>{{ complaint.reporter.name if complaint.reporter else "Anonymous" }}</td>
+                                <td class="address">{{ complaint.address }}</td>
+                                <td class="category">{{ complaint["request_type.title"] }}</td>
+                                <td class="department">{{ complaint["request_type.organization"] }}</td>
+                                <td>{% if complaint.photo_url %}<img src="{{ complaint.photo_url }}" alt="Complaint Image">{% else %}No Image{% endif %}</td>
+                                <td><a href="{{ complaint.html_url }}" target="_blank">View</a></td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
+    </div>
+</body>
+</html>
