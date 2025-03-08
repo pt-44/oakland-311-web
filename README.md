@@ -1,7 +1,3 @@
-Here's the full **README.md** file in Markdown format:  
-
----
-
 ```markdown
 # 📌 Oakland 311 Web App
 🚀 **A web-based interactive dashboard for visualizing Oakland, CA 311 complaints using Flask, Folium, and Pandas.**  
