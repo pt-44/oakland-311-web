@@ -5,6 +5,7 @@ from geopy.geocoders import Nominatim
 from geopy.distance import geodesic
 import os
 from datetime import timedelta
+from folium.plugins import HeatMap
 
 app = Flask(__name__)
 
@@ -124,7 +125,7 @@ def index():
         issues_by_time = filtered_df["time_group"].value_counts().sort_index().to_dict()
         issues_by_time = [{"date": period, "count": count} for period, count in issues_by_time.items()]
 
-        # Generate interactive map
+        # Generate interactive map for the default view
         map_center = [lat, lon]
         folium_map = folium.Map(location=map_center, zoom_start=14)
 
@@ -163,6 +164,48 @@ def index():
                            total_issues=total_issues,
                            issues_by_category=issues_by_category,
                            issues_by_time=issues_by_time)
+
+@app.route('/toggle_heatmap', methods=['POST'])
+def toggle_heatmap():
+    data = request.get_json()
+    is_heatmap = data.get('heatmap', False)
+
+    # Use the same filtering logic as in the index route
+    address = data.get('address', '')
+    radius = float(data.get('radius', 0.5))
+    start_date = pd.to_datetime(data.get('start_date'), errors='coerce', utc=True) if data.get('start_date') else None
+    end_date = pd.to_datetime(data.get('end_date'), errors='coerce', utc=True) if data.get('end_date') else None
+    selected_categories = data.get('categories', [])
+
+    lat, lon = get_lat_lon(address)
+    if not lat or not lon:
+        return {'success': False, 'message': 'Invalid address.'}
+
+    # Filter the dataset
+    filtered_df = df.copy()
+    if start_date:
+        filtered_df = filtered_df[filtered_df['created_at'] >= start_date]
+    if end_date:
+        filtered_df = filtered_df[filtered_df['created_at'] <= end_date]
+    if selected_categories:
+        filtered_df = filtered_df[filtered_df['request_type.title'].isin(selected_categories)]
+    filtered_df['distance_miles'] = filtered_df.apply(lambda row: geodesic((lat, lon), (row['lat'], row['lng'])).miles, axis=1)
+    filtered_df = filtered_df[filtered_df['distance_miles'] <= radius]
+
+    # Create the map
+    folium_map = folium.Map(location=[lat, lon], zoom_start=13)
+
+    if is_heatmap:
+        # Add heatmap layer with dynamic radius
+        heat_data = [[row['lat'], row['lng']] for index, row in filtered_df.iterrows()]
+        HeatMap(heat_data, radius=15, blur=10, max_zoom=15).add_to(folium_map)
+    else:
+        # Add markers
+        for index, row in filtered_df.iterrows():
+            folium.Marker([row['lat'], row['lng']], popup=row['summary']).add_to(folium_map)
+
+    map_html = folium_map._repr_html_()
+    return {'success': True, 'map_html': map_html}
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=5005)

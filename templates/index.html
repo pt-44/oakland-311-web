@@ -72,11 +72,50 @@
             height: 300px;
             margin: auto;
         }
+        .tab {
+            overflow: hidden;
+            border: 1px solid #ccc;
+            background-color: #f1f1f1;
+        }
+        .tab button {
+            background-color: inherit;
+            float: left;
+            border: none;
+            outline: none;
+            cursor: pointer;
+            padding: 14px 16px;
+            transition: 0.3s;
+        }
+        .tab button:hover {
+            background-color: #ddd;
+        }
+        .tab button.active {
+            background-color: #ccc;
+        }
+        .tabcontent {
+            display: none;
+            padding: 6px 12px;
+            border: 1px solid #ccc;
+            border-top: none;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h2>Oakland 311 Complaints</h2>
+
+        <div class="tab">
+            <button class="tablinks" onclick="openMap(event, 'DefaultMap')">Default Map</button>
+            <button class="tablinks" onclick="openMap(event, 'Heatmap')">Heatmap</button>
+        </div>
+
+        <div id="DefaultMap" class="tabcontent">
+            <div class="map-container" id="default-map">{{ map_html|safe }}</div>
+        </div>
+
+        <div id="Heatmap" class="tabcontent" style="display:none;">
+            <div class="map-container" id="heatmap"></div>
+        </div>
 
         <form method="POST">
             <input type="text" name="address" placeholder="Enter an address..." required value="{{ search_address or '' }}">
@@ -99,24 +138,82 @@
             <p style="color:red; text-align:center;">{{ error }}</p>
         {% endif %}
 
-        {% if map_html %}
-            <div class="map-container">{{ map_html|safe }}</div>
-        {% endif %}
+        <script>
+            function openMap(evt, mapName) {
+                var i, tabcontent, tablinks;
+                tabcontent = document.getElementsByClassName("tabcontent");
+                for (i = 0; i < tabcontent.length; i++) {
+                    tabcontent[i].style.display = "none";
+                }
+                tablinks = document.getElementsByClassName("tablinks");
+                for (i = 0; i < tablinks.length; i++) {
+                    tablinks[i].className = tablinks[i].className.replace(" active", "");
+                }
+                document.getElementById(mapName).style.display = "block";
+                evt.currentTarget.className += " active";
+
+                // Load the appropriate map
+                if (mapName === 'Heatmap') {
+                    loadHeatmap();
+                }
+            }
+
+            function loadHeatmap() {
+                // Collect filter data
+                const address = document.querySelector('input[name="address"]').value;
+                const radius = document.querySelector('input[name="radius"]').value;
+                const startDate = document.querySelector('input[name="start_date"]').value;
+                const endDate = document.querySelector('input[name="end_date"]').value;
+                const categories = Array.from(document.querySelector('select[name="categories"]').selectedOptions).map(option => option.value);
+
+                // Send a request to the server to load the heatmap
+                fetch('/toggle_heatmap', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        heatmap: true,
+                        address: address,
+                        radius: radius,
+                        start_date: startDate,
+                        end_date: endDate,
+                        categories: categories
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById('heatmap').innerHTML = data.map_html;
+                    } else {
+                        alert('Failed to load heatmap: ' + data.message);
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+            }
+
+            // Initialize the default map view
+            document.addEventListener('DOMContentLoaded', function() {
+                document.querySelector('.tablinks').click();
+            });
+        </script>
 
         {% if complaints %}
             <h3>Filtered Complaints</h3>
-            <p><strong>Search Criteria:</strong> 
-                Address: {{ search_address }}, 
-                Radius: {{ search_radius }} miles, 
-                Start Date: {{ search_start_date or "None" }}, 
-                End Date: {{ search_end_date or "None" }},
-                Categories: 
-                {% if selected_categories %}
-                    {{ selected_categories | join(', ') }}
-                {% else %}
-                    All
-                {% endif %}
-            </p>
+            <p><strong>Search Criteria:</strong></p>
+            <ul>
+                <li><strong>Address:</strong> {{ search_address }}</li>
+                <li><strong>Radius:</strong> {{ search_radius }} miles</li>
+                <li><strong>Start Date:</strong> {{ search_start_date or "None" }}</li>
+                <li><strong>End Date:</strong> {{ search_end_date or "None" }}</li>
+                <li><strong>Categories:</strong>
+                    <ul>
+                        {% for category in selected_categories %}
+                            <li>{{ category }}</li>
+                        {% endfor %}
+                    </ul>
+                </li>
+            </ul>
 
             <h4>Search Summary</h4>
             <p><strong>Total Issues Found:</strong> {{ total_issues }}</p>
