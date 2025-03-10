@@ -146,26 +146,111 @@ def index():
     issues_by_category = {}
     issues_by_time = {}
 
+    # Define grouped_categories
+    grouped_categories = {
+        "City Services": [
+            "Animal Control",
+            "Homeless Outreach",
+            "Other City Services",
+            "Other Issue/Concern",
+            "Volunteer - Community Bag Pick Up"
+        ],
+        "Construction": [
+            "Construction Issue - Parking Blocked",
+            "Construction Issue - Sidewalk Blocked",
+            "Construction Issue - Street or Bike Lane Blocked",
+            "Contractor Blocking Street/Sidewalk/Parking"
+        ],
+        "Graffiti": [
+            "Graffiti - Advertising (posters, signs, etc.)",
+            "Graffiti - City Building (Library, Rec Center)",
+            "Graffiti - OTHER",
+            "Graffiti - Park",
+            "Graffiti - Street Litter Container",
+            "Graffiti - Street, Street Light, Traffic Signal",
+            "Graffiti - Traffic Sign(s)"
+        ],
+        "Illegal Dumping": [
+            "Illegal Dumping - debris, appliances, etc.",
+            "Illegal Dumping – green waste",
+            "Illegal Dumping – mattress/boxspring",
+            "Litter/Dumping"
+        ],
+        "Parking": [
+            "Parking - Abandoned Vehicle",
+            "Parking - Blue Curb (Non-Residential)",
+            "Parking - Blue Curb (Residential)",
+            "Parking - Change (On Street)",
+            "Parking - Enforcement",
+            "Parking - Meter Maintenance",
+            "Parking - Residential Permit"
+        ],
+        "Parks": [
+            "Park - Ballfields",
+            "Park - Landscape Maintenance",
+            "Park - Lighting",
+            "Park - Mowing",
+            "Park - Pathways, Hardscape and Paving",
+            "Park - Plumbing",
+            "Park - Sign",
+            "Park - Tot Lots, Tables, Benches"
+        ],
+        "Private Property": [
+            "Blight-PRIVATE PROPERTY ONLY- Trash, debris, graffiti, weeds. Residential or Commercial Properties",
+            "Housing/Facility Maintenance- PRIVATE PROPERTY ONLY- Structural, electrical, heating, plumbing issues, mold. Private property construction work without permits.",
+            "Noise Complaints- PRIVATE PROPERTY ONLY- Persistent construction noise. Heating and Air Conditioning Noise.",
+            "Signage - Private Property",
+            "Zoning/Private Property Use- PRIVATE PROPERTY ONLY- Unpermitted business or activity. Excessive signage"
+        ],
+        "Sidewalks and Streets": [
+            "Pothole/Street Repair",
+            "Sidewalk - Damage",
+            "Streets - Guardrail Repair",
+            "Streets - Potholes/Depression",
+            "Streets - Slow Streets",
+            "Streets - Street Deterioration",
+            "Streets/Sidewalks - Curb & Gutter Repair"
+        ],
+        "Street and Traffic Lights": [
+            "Pedestrian Signal - Broken/Damaged",
+            "Pedestrian Signal - Knocked Down",
+            "Street Light",
+            "Street Light (Not Traffic Signal) - Outage/Damaged",
+            "Traffic Safety (non-emergency)"
+        ],
+        "Transportation": [
+            "Bicycle/Moped/Scooter - Lime",
+            "Bicycle/Moped/Scooter - Lyft Bay Wheels",
+            "City Park Issue",
+            "Sideshows - Sideshow Prevention"
+        ],
+        "Weed and Litter": [
+            "Litter - Street Litter Container - Broken",
+            "Litter - Street Litter Container - Overflowing/Mis",
+            "Weed Abatement - Public Right of Way"
+        ]
+    }
+
     if df.empty:
-        return render_template("index.html", error="No data available. Ensure the CSV file is present.", complaints=[], map_html=None, categories=[], selected_categories=[])
+        return render_template("index.html", error="No data available. Ensure the CSV file is present.", complaints=[], map_html=None, categories=[], selected_categories=[], grouped_categories=grouped_categories)
 
     if request.method == "POST":
         address = request.form.get("address")
         radius = float(request.form.get("radius", 0.5))
         start_date = request.form.get("start_date")
         end_date = request.form.get("end_date")
-        selected_categories = request.form.getlist("categories")  # Get multiple selected categories
+        selected_categories = request.form.getlist("categories")
 
         lat, lon = get_lat_lon(address)
         if not lat or not lon:
-            return render_template("index.html", error="Invalid address. Try again.", complaints=[], map_html=None, categories=categories, selected_categories=selected_categories)
+            return render_template("index.html", error="Invalid address. Try again.", complaints=[], map_html=None, categories=categories, selected_categories=selected_categories, grouped_categories=grouped_categories)
 
         # Convert dates from string to timezone-aware datetime
         try:
             start_date = pd.to_datetime(start_date, errors="coerce", utc=True) if start_date else None
             end_date = pd.to_datetime(end_date, errors="coerce", utc=True) if end_date else None
         except Exception:
-            return render_template("index.html", error="Invalid date format. Use YYYY-MM-DD.", complaints=[], map_html=None, categories=categories, selected_categories=selected_categories)
+            return render_template("index.html", error="Invalid date format. Use YYYY-MM-DD.", complaints=[], map_html=None, categories=categories, selected_categories=selected_categories, grouped_categories=grouped_categories)
 
         # Filter by date range
         filtered_df = df.copy()
@@ -183,7 +268,7 @@ def index():
         filtered_df = filtered_df[filtered_df["distance_miles"] <= radius]
 
         if filtered_df.empty:
-            return render_template("index.html", error="No complaints found within the specified criteria.", complaints=[], map_html=None, categories=categories, selected_categories=selected_categories)
+            return render_template("index.html", error="No complaints found within the specified criteria.", complaints=[], map_html=None, categories=categories, selected_categories=selected_categories, grouped_categories=grouped_categories)
 
         # Add index numbers to complaints
         filtered_df["index"] = range(1, len(filtered_df) + 1)
