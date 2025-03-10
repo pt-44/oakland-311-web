@@ -48,6 +48,91 @@ def get_lat_lon(address):
         return location.latitude, location.longitude
     return None, None
 
+# Example of how to group categories
+grouped_categories = {
+    "City Services": [
+        "Animal Control",
+        "Homeless Outreach",
+        "Other City Services",
+        "Other Issue/Concern",
+        "Volunteer - Community Bag Pick Up"
+    ],
+    "Construction": [
+        "Construction Issue - Parking Blocked",
+        "Construction Issue - Sidewalk Blocked",
+        "Construction Issue - Street or Bike Lane Blocked",
+        "Contractor Blocking Street/Sidewalk/Parking"
+    ],
+    "Graffiti": [
+        "Graffiti - Advertising (posters, signs, etc.)",
+        "Graffiti - City Building (Library, Rec Center)",
+        "Graffiti - OTHER",
+        "Graffiti - Park",
+        "Graffiti - Street Litter Container",
+        "Graffiti - Street, Street Light, Traffic Signal",
+        "Graffiti - Traffic Sign(s)"
+    ],
+    "Illegal Dumping": [
+        "Illegal Dumping - debris, appliances, etc.",
+        "Illegal Dumping – green waste",
+        "Illegal Dumping – mattress/boxspring",
+        "Litter/Dumping"
+    ],
+    "Parking": [
+        "Parking - Abandoned Vehicle",
+        "Parking - Blue Curb (Non-Residential)",
+        "Parking - Blue Curb (Residential)",
+        "Parking - Change (On Street)",
+        "Parking - Enforcement",
+        "Parking - Meter Maintenance",
+        "Parking - Residential Permit"
+    ],
+    "Parks": [
+        "Park - Ballfields",
+        "Park - Landscape Maintenance",
+        "Park - Lighting",
+        "Park - Mowing",
+        "Park - Pathways, Hardscape and Paving",
+        "Park - Plumbing",
+        "Park - Sign",
+        "Park - Tot Lots, Tables, Benches"
+    ],
+    "Private Property": [
+        "Blight-PRIVATE PROPERTY ONLY- Trash, debris, graffiti, weeds. Residential or Commercial Properties",
+        "Housing/Facility Maintenance- PRIVATE PROPERTY ONLY- Structural, electrical, heating, plumbing issues, mold. Private property construction work without permits.",
+        "Noise Complaints- PRIVATE PROPERTY ONLY- Persistent construction noise. Heating and Air Conditioning Noise.",
+        "Signage - Private Property",
+        "Zoning/Private Property Use- PRIVATE PROPERTY ONLY- Unpermitted business or activity. Excessive signage"
+    ],
+    "Sidewalks and Streets": [
+        "Pothole/Street Repair",
+        "Sidewalk - Damage",
+        "Streets - Guardrail Repair",
+        "Streets - Potholes/Depression",
+        "Streets - Slow Streets",
+        "Streets - Street Deterioration",
+        "Streets/Sidewalks - Curb & Gutter Repair"
+    ],
+    "Street and Traffic Lights": [
+        "Pedestrian Signal - Broken/Damaged",
+        "Pedestrian Signal - Knocked Down",
+        "Street Light",
+        "Street Light (Not Traffic Signal) - Outage/Damaged",
+        "Traffic Safety (non-emergency)"
+    ],
+    "Transportation": [
+        "Bicycle/Moped/Scooter - Lime",
+        "Bicycle/Moped/Scooter - Lyft Bay Wheels",
+        "City Park Issue",
+        "Sideshows - Sideshow Prevention"
+    ],
+    "Weed and Litter": [
+        "Litter - Street Litter Container - Broken",
+        "Litter - Street Litter Container - Overflowing/Mis",
+        "Weed Abatement - Public Right of Way"
+    ]
+}
+
 @app.route("/", methods=["GET", "POST"])
 def index():
     complaints = []
@@ -163,7 +248,8 @@ def index():
                            selected_categories=selected_categories,
                            total_issues=total_issues,
                            issues_by_category=issues_by_category,
-                           issues_by_time=issues_by_time)
+                           issues_by_time=issues_by_time,
+                           grouped_categories=grouped_categories)
 
 @app.route('/toggle_heatmap', methods=['POST'])
 def toggle_heatmap():

@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Oakland 311 Complaints</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/css/select2.min.css" rel="stylesheet" />
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/js/select2.min.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -123,10 +126,14 @@
             <input type="date" name="start_date" value="{{ search_start_date }}">
             <input type="date" name="end_date" value="{{ search_end_date }}">
 
-            <!-- Multi-Select Category Dropdown -->
-            <select name="categories" multiple>
-                {% for category in categories %}
-                    <option value="{{ category }}" {% if category in selected_categories %}selected{% endif %}>{{ category }}</option>
+            <!-- Multi-Select Category Dropdown with Grouping -->
+            <select name="categories" multiple class="category-select" style="width: 100%;">
+                {% for group, categories in grouped_categories.items() %}
+                    <optgroup label="{{ group }}">
+                        {% for category in categories %}
+                            <option value="{{ category }}" {% if category in selected_categories %}selected{% endif %}>{{ category }}</option>
+                        {% endfor %}
+                    </optgroup>
                 {% endfor %}
             </select>
             <p style="text-align: center; font-size: 12px;">(Hold Ctrl/Cmd to select multiple categories)</p>
@@ -195,6 +202,53 @@
             // Initialize the default map view
             document.addEventListener('DOMContentLoaded', function() {
                 document.querySelector('.tablinks').click();
+            });
+
+            $(document).ready(function() {
+                console.log('jQuery is loaded');
+                if ($.fn.select2) {
+                    console.log('Select2 is loaded');
+                    $('.category-select').select2({
+                        placeholder: "Select categories",
+                        allowClear: true
+                    });
+
+                    // Add functionality to select all subcategories when a main category is clicked
+                    $('.category-select').on('select2:open', function() {
+                        var select = $(this);
+                        console.log('Select2 opened');
+                        setTimeout(function() { // Delay to ensure the dropdown is fully rendered
+                            $('.select2-results__group').each(function() {
+                                var group = $(this);
+                                var groupName = group.text();
+                                if (!group.find('.select-all').length) {
+                                    group.append('<span class="select-all" style="cursor:pointer; color:blue; margin-left:10px;">(Select All)</span>');
+                                }
+                                group.find('.select-all').off('click').on('click', function(e) {
+                                    e.stopPropagation(); // Prevent the default click behavior
+                                    console.log('Select All clicked for group:', groupName);
+                                    var options = select.find('optgroup[label="' + groupName + '"] option');
+                                    options.each(function() {
+                                        $(this).prop('selected', true);
+                                    });
+                                    select.trigger('change');
+                                });
+                            });
+                        }, 100);
+                    });
+
+                    // Add functionality to select only the selected subcategory
+                    $('.category-select').on('select2:select', function(e) {
+                        var selectedOption = e.params.data.element;
+                        var group = $(selectedOption).parent('optgroup');
+                        if (group.length) {
+                            console.log('Subcategory selected:', $(selectedOption).text());
+                            return;
+                        }
+                    });
+                } else {
+                    console.error('Select2 is not loaded');
+                }
             });
         </script>
 
