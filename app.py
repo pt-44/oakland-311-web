@@ -6,39 +6,44 @@ from geopy.distance import geodesic
 import os
 from datetime import timedelta
 from folium.plugins import HeatMap
+from dotenv import load_dotenv
+import psycopg2
+from sqlalchemy import create_engine
+
+load_dotenv()
 
 app = Flask(__name__)
 
-# Updated CSV filename
-CSV_FILENAME = "oakland_311_complaints_365_days.csv"
+# Database connection
+DATABASE_URL = os.getenv('DATABASE_URL')
 
-# Check if the file exists
-if not os.path.exists(CSV_FILENAME):
-    print(f"Error: File {CSV_FILENAME} not found. Please ensure the dataset exists.")
-    df = pd.DataFrame()  # Empty DataFrame
-else:
-    df = pd.read_csv(CSV_FILENAME)
+# Create an SQLAlchemy engine
+engine = create_engine(DATABASE_URL)
 
-    # Convert `created_at` to proper datetime format and ensure it is in UTC
-    df["created_at"] = pd.to_datetime(df["created_at"], errors="coerce", utc=True)
+# Fetch data from the database using the engine
+query = "SELECT * FROM oakland_311_complaints"
+df = pd.read_sql(query, engine)
+
+# Convert `created_at` to proper datetime format and ensure it is in UTC
+df["created_at"] = pd.to_datetime(df["created_at"], errors="coerce", utc=True)
 
 # Required columns
 REQUIRED_COLUMNS = {
     "id", "summary", "description", "status", "created_at", "updated_at",
     "acknowledged_at", "closed_at", "reopened_at", "lat", "lng", "address",
-    "request_type.id", "request_type.title", "request_type.organization",
-    "reporter.id", "reporter.name", "reporter.role", "reporter.avatar",
-    "reporter.html_url", "html_url", "photo_url"
+    "request_type_id", "request_type_title", "request_type_organization",
+    "reporter_id", "reporter_name", "reporter_role", "reporter_avatar",
+    "reporter_html_url", "html_url", "photo_url"
 }
 
 # Ensure DataFrame has the correct columns
 if not df.empty and not REQUIRED_COLUMNS.issubset(df.columns):
-    print("Error: CSV file is missing required columns.")
+    print("Error: Database is missing required columns.")
     df = pd.DataFrame()  # Reset to empty
 else:
-    # Extract unique categories from the dataset
-    df["request_type.title"].fillna("Unknown", inplace=True)  # Ensure no missing values
-    categories = sorted(df["request_type.title"].unique())  # Get sorted list of unique categories
+    # Ensure no missing values
+    df["request_type_title"] = df["request_type_title"].fillna("Unknown")
+    categories = sorted(df["request_type_title"].unique())  # Get sorted list of unique categories
 
 # Function to get latitude & longitude from an address
 def get_lat_lon(address):
@@ -232,7 +237,7 @@ def index():
     }
 
     if df.empty:
-        return render_template("index.html", error="No data available. Ensure the CSV file is present.", complaints=[], map_html=None, categories=[], selected_categories=[], grouped_categories=grouped_categories)
+        return render_template("index.html", error="No data available. Ensure the database connection is established.", complaints=[], map_html=None, categories=[], selected_categories=[], grouped_categories=grouped_categories)
 
     if request.method == "POST":
         address = request.form.get("address")
@@ -261,7 +266,7 @@ def index():
 
         # Filter by multiple categories if selected
         if selected_categories:
-            filtered_df = filtered_df[filtered_df["request_type.title"].isin(selected_categories)]
+            filtered_df = filtered_df[filtered_df["request_type_title"].isin(selected_categories)]
 
         # Calculate distances and filter data
         filtered_df["distance_miles"] = filtered_df.apply(lambda row: geodesic((lat, lon), (row["lat"], row["lng"])).miles, axis=1)
@@ -276,7 +281,7 @@ def index():
 
         # Generate summary statistics
         total_issues = len(filtered_df)
-        issues_by_category = filtered_df["request_type.title"].value_counts().to_dict()
+        issues_by_category = filtered_df["request_type_title"].value_counts().to_dict()
 
         # Determine the date range
         date_min = filtered_df["created_at"].min().date() if not filtered_df.empty else None
@@ -304,7 +309,7 @@ def index():
             location=[lat, lon],
             popup=f"Search Location: {address}",
             tooltip="Search Address",
-            icon=folium.Icon(color="yellow", icon="star")
+            icon=folium.Icon(color="orange", icon="star")
         ).add_to(folium_map)
 
         # Add numbered complaint markers
@@ -321,6 +326,8 @@ def index():
             ).add_to(folium_map)
 
         map_html = folium_map._repr_html_()
+
+    print("DataFrame columns:", df.columns)
 
     return render_template("index.html", 
                            complaints=complaints, 
@@ -359,7 +366,7 @@ def toggle_heatmap():
     if end_date:
         filtered_df = filtered_df[filtered_df['created_at'] <= end_date]
     if selected_categories:
-        filtered_df = filtered_df[filtered_df['request_type.title'].isin(selected_categories)]
+        filtered_df = filtered_df[filtered_df['request_type_title'].isin(selected_categories)]
     filtered_df['distance_miles'] = filtered_df.apply(lambda row: geodesic((lat, lon), (row['lat'], row['lng'])).miles, axis=1)
     filtered_df = filtered_df[filtered_df['distance_miles'] <= radius]
 
@@ -379,4 +386,5 @@ def toggle_heatmap():
     return {'success': True, 'map_html': map_html}
 
 if __name__ == "__main__":
+    print(os.getenv('DATABASE_URL'))
     app.run(debug=True, host="0.0.0.0", port=5005)
