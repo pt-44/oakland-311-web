@@ -269,7 +269,7 @@ def index():
             filtered_df = filtered_df[filtered_df["request_type_title"].isin(selected_categories)]
 
         # Calculate distances and filter data
-        filtered_df["distance_miles"] = filtered_df.apply(lambda row: geodesic((lat, lon), (row["lat"], row["lng"])).miles, axis=1)
+        filtered_df["distance_miles"] = filtered_df.apply(lambda row: geodesic((lat, lon), (row["lat"], row["lng"])).miles, axis=1).iloc[:, 0]
         filtered_df = filtered_df[filtered_df["distance_miles"] <= radius]
 
         if filtered_df.empty:
@@ -367,7 +367,7 @@ def toggle_heatmap():
         filtered_df = filtered_df[filtered_df['created_at'] <= end_date]
     if selected_categories:
         filtered_df = filtered_df[filtered_df['request_type_title'].isin(selected_categories)]
-    filtered_df['distance_miles'] = filtered_df.apply(lambda row: geodesic((lat, lon), (row['lat'], row['lng'])).miles, axis=1)
+    filtered_df['distance_miles'] = filtered_df.apply(lambda row: geodesic((lat, lon), (row['lat'], row['lng'])).miles, axis=1).iloc[:, 0]
     filtered_df = filtered_df[filtered_df['distance_miles'] <= radius]
 
     # Create the map
